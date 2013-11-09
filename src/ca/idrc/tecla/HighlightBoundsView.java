@@ -14,35 +14,25 @@
  * the License.
  */
 
+// package com.google.android.marvin.utils;
 package ca.idrc.tecla;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.View;
-import android.view.accessibility.AccessibilityNodeInfo;
-
-import java.util.HashSet;
-import java.util.Iterator;
 
 /**
- * Handles drawing the screen reader cursor on-screen.
+ * Handles drawing a frame on-screen.
  */
 public class HighlightBoundsView extends View {
-    private final int[] SCREEN_LOCATION = new int[2];
 
-    private final Rect mTemp = new Rect();
-    private final Paint mPaint = new Paint();
-    private final HashSet<AccessibilityNodeInfo> mNodes = new HashSet<AccessibilityNodeInfo>();
-    private final Matrix mMatrix = new Matrix();
-
-    private int mHighlightColor;
+    private Rect mBounds = new Rect();
+    private Paint mPaint = new Paint();
 
     /**
      * Constructs a new highlight bounds view using the specified attributes.
@@ -55,34 +45,14 @@ public class HighlightBoundsView extends View {
 
         mPaint.setStyle(Style.STROKE);
         mPaint.setStrokeJoin(Join.ROUND);
-        mPaint.setStrokeWidth(10);
 
-        mHighlightColor = Color.RED;
-    }
-
-    @Override
-    public void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
-
-        getLocationOnScreen(SCREEN_LOCATION);
     }
 
     @Override
     public void onDraw(Canvas c) {
-        final int saveCount = c.save();
-        c.getMatrix(mMatrix);
-
-        mMatrix.postTranslate(-SCREEN_LOCATION[0], -SCREEN_LOCATION[1]);
-        mPaint.setColor(mHighlightColor);
-
-        c.setMatrix(mMatrix);
-
-        for (AccessibilityNodeInfo node : mNodes) {
-            node.getBoundsInScreen(mTemp);
-            c.drawRect(mTemp, mPaint);
-        }
-
-        c.restoreToCount(saveCount);
+    	c.getClipBounds(mBounds);
+    	mBounds.inset(Math.round(mPaint.getStrokeWidth()), Math.round(mPaint.getStrokeWidth()));
+        c.drawRect(mBounds, mPaint);
     }
 
     /**
@@ -91,67 +61,18 @@ public class HighlightBoundsView extends View {
      * @param color
      */
     public void setHighlightColor(int color) {
-        mHighlightColor = color;
-    }
-
-    public void clear() {
-        for (AccessibilityNodeInfo node : mNodes) {
-            node.recycle();
-        }
-
-        mNodes.clear();
+    	mPaint.setColor(color);
+    	invalidate();
     }
 
     /**
-     * Sets the highlighted bounds to those of the specified node.
+     * Sets the stroke width of the highlighted bounds.
      *
-     * @param node The node to highlight.
+     * @param color
      */
-    public void add(AccessibilityNodeInfo node) {
-        if (node == null) {
-            return;
-        }
-
-        final AccessibilityNodeInfo clone = AccessibilityNodeInfo.obtain(node);
-
-        mNodes.add(clone);
+    public void setStrokeWidth(float width) {
+        mPaint.setStrokeWidth(width);
+    	invalidate();
     }
 
-    /**
-     * Removes nodes that are no longer accessible.
-     */
-    public void removeInvalidNodes() {
-        final Iterator<AccessibilityNodeInfo> iterator = mNodes.iterator();
-
-        while (iterator.hasNext()) {
-            final AccessibilityNodeInfo node = iterator.next();
-
-            if (!isValidNode(node)) {
-                iterator.remove();
-                node.recycle();
-            }
-        }
-    }
-
-    private boolean isValidNode(AccessibilityNodeInfo node) {
-        final AccessibilityNodeInfo parent = node.getParent();
-
-        if (parent != null) {
-            parent.recycle();
-            return true;
-        }
-
-        final int childCount = node.getChildCount();
-
-        for (int i = 0; i < childCount; i++) {
-            final AccessibilityNodeInfo child = node.getChild(i);
-
-            if (child != null) {
-                child.recycle();
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

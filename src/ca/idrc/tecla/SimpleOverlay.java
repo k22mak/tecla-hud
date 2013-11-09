@@ -14,6 +14,7 @@
  * the License.
  */
 
+// package com.googlecode.eyesfree.widget;
 package ca.idrc.tecla;
 
 import android.content.Context;

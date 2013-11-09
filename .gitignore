@@ -2,8 +2,8 @@
 *.project
 *.cproject
 *.settings
-*/bin
-*/gen
+*bin
+*gen
 *project.properties
-*/libs
-*/obj
+*libs
+*obj

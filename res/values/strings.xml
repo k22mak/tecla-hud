@@ -1,6 +1,7 @@
 <resources>
-    <string name="app_name">TeclaAccessibilityService</string>
+    <string name="app_name">Tecla Next</string>
 
     <!-- Tecla a11y service description -->
-    <string name="tecla_service_description">This is the Tecla service description</string>
+    <string name="tecla_service_description">The Tecla Next accessibility service makes your Android device easier to use with alternative input devices like the Tecla Shield. You must enable it before you can use any of the Tecla Next features! </string>
+
 </resources>
