@@ -33,10 +33,17 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 	
 	public static final String CLASS_TAG = "Highlighter";
 
-    private final HUDView mHUDView;
+    private HUDView mHUDView;
+    private int mNodeInset;
     
 	public TeclaAccessibilityOverlay(Context context) {
 		super(context);
+		
+		init();
+		
+	}
+	
+	private void init() {
 		final WindowManager.LayoutParams params = getParams();
 		params.type = WindowManager.LayoutParams.TYPE_SYSTEM_ERROR;
 		params.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
@@ -45,6 +52,8 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 		params.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
 		setParams(params);
 		
+		mNodeInset = -(HUDView.FRAME_PIXEL_STROKE_WIDTH * 2);
+
 		setContentView(R.layout.tecla_accessibility_overlay);
 
 		mHUDView = (HUDView) findViewById(R.id.bounds);
@@ -85,6 +94,7 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 		if(node != null) {
 		    Rect node_bounds = new Rect();
 		    node.getBoundsInScreen(node_bounds);
+		    node_bounds.inset(mNodeInset, mNodeInset);
 		    mHUDView.setLeft(node_bounds.left);
 		    mHUDView.setTop(node_bounds.top);
 		    mHUDView.setRight(node_bounds.right);
