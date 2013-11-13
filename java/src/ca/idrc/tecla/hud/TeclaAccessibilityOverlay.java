@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ca.idrc.tecla;
+package ca.idrc.tecla.hud;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -25,18 +25,15 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-import ca.idrc.tecla.HighlightBoundsView;
-import ca.idrc.tecla.SimpleOverlay;
+import ca.idrc.tecla.hud.utils.HUDView;
+import ca.idrc.tecla.hud.utils.SimpleOverlay;
 import ca.idrc.teclaaccessibilityservice.R;
 
 public class TeclaAccessibilityOverlay extends SimpleOverlay {
 	
 	public static final String CLASS_TAG = "Highlighter";
-	private static final int DEFAULT_COLOR = Color.rgb(0x6F, 0xBF, 0xF5);
-	private static final int FRAME_COLOR = Color.rgb(0x38, 0x38, 0x38);
 
-    private final HighlightBoundsView mInnerBoundsView;
-    private final HighlightBoundsView mOuterBoundsView;
+    private final HUDView mHUDView;
     
 	public TeclaAccessibilityOverlay(Context context) {
 		super(context);
@@ -50,12 +47,7 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 		
 		setContentView(R.layout.tecla_accessibility_overlay);
 
-		mInnerBoundsView = (HighlightBoundsView) findViewById(R.id.announce_bounds);
-		mInnerBoundsView.setHighlightColor(DEFAULT_COLOR);
-		
-		
-		mOuterBoundsView = (HighlightBoundsView) findViewById(R.id.bounds);
-		mOuterBoundsView.setHighlightColor(FRAME_COLOR);
+		mHUDView = (HUDView) findViewById(R.id.bounds);
 	}
 
 	@Override
@@ -93,20 +85,11 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 		if(node != null) {
 		    Rect node_bounds = new Rect();
 		    node.getBoundsInScreen(node_bounds);
-		    mOuterBoundsView.setLeft(node_bounds.left);
-		    mOuterBoundsView.setTop(node_bounds.top);
-		    mOuterBoundsView.setRight(node_bounds.right);
-		    mOuterBoundsView.setBottom(node_bounds.bottom);
-		    mInnerBoundsView.setLeft(node_bounds.left);
-		    mInnerBoundsView.setTop(node_bounds.top);
-		    mInnerBoundsView.setRight(node_bounds.right);
-		    mInnerBoundsView.setBottom(node_bounds.bottom);
-		    //mOuterBoundsView.setBounds(node_bounds);
-		    //mInnerBoundsView.setBounds(node_bounds);
-		    mOuterBoundsView.setStrokeWidth(20);
-		    mInnerBoundsView.setStrokeWidth(6);
-		    mOuterBoundsView.postInvalidate();        	
-		    mInnerBoundsView.postInvalidate();
+		    mHUDView.setLeft(node_bounds.left);
+		    mHUDView.setTop(node_bounds.top);
+		    mHUDView.setRight(node_bounds.right);
+		    mHUDView.setBottom(node_bounds.bottom);
+		    mHUDView.postInvalidate();
 			
 		}
 	}    

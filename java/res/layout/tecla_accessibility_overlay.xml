@@ -3,13 +3,8 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent" >
     
-    <ca.idrc.tecla.HighlightBoundsView
+    <ca.idrc.tecla.hud.utils.HUDView
         android:id="@+id/bounds"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent" />
-
-    <ca.idrc.tecla.HighlightBoundsView
-        android:id="@+id/announce_bounds"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent" />
 
