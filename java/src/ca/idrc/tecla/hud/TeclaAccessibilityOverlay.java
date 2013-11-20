@@ -17,17 +17,13 @@
 package ca.idrc.tecla.hud;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.graphics.Rect;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import ca.idrc.tecla.hud.R;
 import ca.idrc.tecla.hud.utils.HUDView;
 import ca.idrc.tecla.hud.utils.SimpleOverlay;
-import ca.idrc.teclaaccessibilityservice.R;
 
 public class TeclaAccessibilityOverlay extends SimpleOverlay {
 	

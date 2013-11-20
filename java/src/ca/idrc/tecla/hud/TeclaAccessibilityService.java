@@ -21,6 +21,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	private int mLeafIndex;
 
 	private Handler mHandler;
+	private boolean is_shutting_down = false;
 	
 	private AccessibilityNodeInfo mLastNode;
 	
@@ -47,6 +48,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 
 	private void init() {
 
+		//Debug.waitForDebugger();
 		mDebugScanHandler = new Handler();
 		mHandler = new Handler();
 
@@ -61,12 +63,18 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	@Override
 	public void onAccessibilityEvent(AccessibilityEvent event) {
 		int event_type = event.getEventType();
-		TeclaStatic.logD(CLASS_TAG, AccessibilityEvent.eventTypeToString(event_type) + ": " + event.getText());
+		//TeclaStatic.logD(CLASS_TAG, AccessibilityEvent.eventTypeToString(event_type) + ": " + event.getText());
 		AccessibilityNodeInfo node = event.getSource();
 		if (node != null) {
 			switch (event_type) {
-			case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
+			case AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED:
+				CharSequence desc = event.getClassName();
+				if (desc != null) {
+					TeclaStatic.logW(CLASS_TAG, desc.toString());
+				}
+				break;
 			case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
+			case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
 			case AccessibilityEvent.TYPE_VIEW_FOCUSED:
 			case AccessibilityEvent.TYPE_VIEW_SELECTED:
 			case AccessibilityEvent.TYPE_VIEW_SCROLLED:
@@ -190,7 +198,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	 */
 	public void shutDown() {	
 		TeclaStatic.logD(CLASS_TAG, "Shutting down...");
-		
+		is_shutting_down = true;
 	}
 
 	private boolean isActive(AccessibilityNodeInfo node) {
@@ -213,6 +221,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		return (node.getActions() & AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS;
 	}
 	
+	/** DEBUGGING CODE **/
 	private final static int DEBUG_SCAN_DELAY = 1000;
 	private Handler mDebugScanHandler;
 	private Runnable mDebugScanRunnable = new Runnable() {
@@ -230,7 +239,12 @@ public class TeclaAccessibilityService extends AccessibilityService {
 				mLeafIndex++;
 				//logProperties(mCurrentLeaf);
 			}
-			mDebugScanHandler.postDelayed(mDebugScanRunnable, DEBUG_SCAN_DELAY);
+			if (!is_shutting_down) {
+				mDebugScanHandler.postDelayed(mDebugScanRunnable, DEBUG_SCAN_DELAY);
+			} else {
+				hideHighlighter();
+				mHighlighter = null;
+			}
 		}
 		
 	};
@@ -260,5 +274,5 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		// TODO Auto-generated method stub
 		
 	}
-	
+    
 }
