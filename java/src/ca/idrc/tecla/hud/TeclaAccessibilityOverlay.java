@@ -24,6 +24,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import ca.idrc.tecla.hud.R;
 import ca.idrc.tecla.hud.utils.HUDView;
 import ca.idrc.tecla.hud.utils.SimpleOverlay;
+import ca.idrc.tecla.lib.TeclaDebug;
 
 public class TeclaAccessibilityOverlay extends SimpleOverlay {
 	
@@ -48,7 +49,7 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 		params.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
 		setParams(params);
 		
-		mNodeInset = -(HUDView.FRAME_PIXEL_STROKE_WIDTH * 2);
+		mNodeInset = HUDView.FRAME_PIXEL_STROKE_WIDTH * 2;
 
 		setContentView(R.layout.tecla_accessibility_overlay);
 
@@ -57,12 +58,12 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 
 	@Override
 	protected void onShow() {
-		TeclaStatic.logD(CLASS_TAG, "Showing Highlighter");
+		TeclaDebug.logD(CLASS_TAG, "Showing Highlighter");
 	}
 
 	@Override
 	protected void onHide() {
-		TeclaStatic.logD(CLASS_TAG, "Hiding Highlighter");
+		TeclaDebug.logD(CLASS_TAG, "Hiding Highlighter");
 //        mOuterBounds.clear();
 //        mInnerBounds.clear();
 	}
@@ -85,18 +86,23 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 //    }
 
 	public void setNode(AccessibilityNodeInfo node) {
-	
+		
 		//clearHighlight();
 		if(node != null) {
 		    Rect node_bounds = new Rect();
 		    node.getBoundsInScreen(node_bounds);
-		    node_bounds.inset(mNodeInset, mNodeInset);
-		    mHUDView.setLeft(node_bounds.left);
-		    mHUDView.setTop(node_bounds.top);
-		    mHUDView.setRight(node_bounds.right);
-		    mHUDView.setBottom(node_bounds.bottom);
-		    mHUDView.postInvalidate();
-			
+		    setBounds(node_bounds);
 		}
 	}    
+
+	public void setBounds(Rect bounds) {
+
+		mHUDView.setLeft(bounds.left - mNodeInset);
+		mHUDView.setTop(bounds.top - mNodeInset);
+		mHUDView.setRight(bounds.right + mNodeInset);
+		mHUDView.setBottom(bounds.bottom + mNodeInset);
+		mHUDView.postInvalidate();
+
+	}
+	
 }

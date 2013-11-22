@@ -2,11 +2,17 @@ package ca.idrc.tecla.hud;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import ca.idrc.tecla.lib.TeclaMessaging;
+import ca.idrc.tecla.lib.TeclaDebug;
+import ca.idrc.tecla.lib.TeclaUtils;
+
 import android.accessibilityservice.AccessibilityService;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.view.accessibility.AccessibilityEvent;
@@ -17,11 +23,13 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	private final static String CLASS_TAG = "TeclaAccessibilityService";
 
 	private ArrayList<AccessibilityNodeInfo> mActiveLeafs;
+	private ArrayList<Rect> mKeyBoundsList;
 	private AccessibilityNodeInfo mCurrentLeaf;
-	private int mLeafIndex;
+	private int mLeafIndex, mKeyIndex;
+	private boolean isKeyboardVisible;
 
 	private Handler mHandler;
-	private boolean is_shutting_down = false;
+	private boolean isShuttingDown = false;
 	
 	private AccessibilityNodeInfo mLastNode;
 	
@@ -33,7 +41,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	
 	@Override
 	public void onCreate() {
-		TeclaStatic.logD(CLASS_TAG, "Service created");
+		TeclaDebug.logD(CLASS_TAG, "Service created");
 
 		init();
 	}
@@ -42,7 +50,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	protected void onServiceConnected() {
 		super.onServiceConnected();
 
-		TeclaStatic.logD(CLASS_TAG, "Service connected");
+		TeclaDebug.logD(CLASS_TAG, "Service connected");
 
 	}
 
@@ -51,13 +59,18 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		//Debug.waitForDebugger();
 		mDebugScanHandler = new Handler();
 		mHandler = new Handler();
+		mLeafIndex = 0;
+		mKeyIndex = 0;
+		isKeyboardVisible = false;
 
 		mActiveLeafs = new ArrayList<AccessibilityNodeInfo>();
+		mKeyBoundsList = new ArrayList<Rect>();
 		mHighlighter = new TeclaAccessibilityOverlay(this);
 
 		updateActiveLeafs(null);
 		mDebugScanHandler.post(mDebugScanRunnable);
-
+		registerReceiver(mReceiver, TeclaMessaging.mKeyboardDrawnFilter);
+		registerReceiver(mReceiver, TeclaMessaging.mIMEHiddenFilter);
 	}
 	
 	@Override
@@ -66,15 +79,15 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		//TeclaStatic.logD(CLASS_TAG, AccessibilityEvent.eventTypeToString(event_type) + ": " + event.getText());
 		AccessibilityNodeInfo node = event.getSource();
 		if (node != null) {
+			CharSequence desc = event.getPackageName();
+			if (desc != null) {
+				TeclaDebug.logW(CLASS_TAG, "Event Type: " + AccessibilityEvent.eventTypeToString(event.getEventType()) + " received from package: " + desc.toString());
+			}				
 			switch (event_type) {
 			case AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED:
-				CharSequence desc = event.getClassName();
-				if (desc != null) {
-					TeclaStatic.logW(CLASS_TAG, desc.toString());
-				}
-				break;
 			case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
 			case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
+			case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
 			case AccessibilityEvent.TYPE_VIEW_FOCUSED:
 			case AccessibilityEvent.TYPE_VIEW_SELECTED:
 			case AccessibilityEvent.TYPE_VIEW_SCROLLED:
@@ -84,61 +97,57 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		}
 	}
 
+	private BroadcastReceiver mReceiver = new BroadcastReceiver() {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			if (intent.getAction().equals(TeclaMessaging.EVENT_IME_HIDING)) {
+				TeclaDebug.logD(CLASS_TAG, "IME Window hiding!");
+				//mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
+				isKeyboardVisible = false;
+			}
+			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST)) {
+				TeclaDebug.logD(CLASS_TAG, "Keyboard drawn!");
+				//mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
+				mKeyBoundsList = (ArrayList<Rect>) intent.getSerializableExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST);
+				Collections.sort(mKeyBoundsList, TeclaUtils.mRectComparator);
+				isKeyboardVisible = true; //Assume IME is showing
+				mKeyIndex = 0;
+				//mDebugScanHandler.post(mDebugScanRunnable);
+			}
+		}
+		
+	};
+	
 	private Runnable mUpdateActiveLeafsRunnable = new Runnable() {
 
 		@Override
 		public void run() {
 			AccessibilityNodeInfo thisnode = mLastNode;
-			ArrayList<AccessibilityNodeInfo> active_leafs = new ArrayList<AccessibilityNodeInfo>();
+			ArrayList<AccessibilityNodeInfo> these_leafs = new ArrayList<AccessibilityNodeInfo>();
 			Queue<AccessibilityNodeInfo> q = new LinkedList<AccessibilityNodeInfo>();
 			q.add(thisnode);
 			while (!q.isEmpty()) {
 				thisnode = q.poll();
 				if (isActive(thisnode)) {
-					active_leafs.add(thisnode);
+					these_leafs.add(thisnode);
 				}
 				for (int i=0; i<thisnode.getChildCount(); ++i) {
 					AccessibilityNodeInfo n = thisnode.getChild(i);
 					if (n != null) q.add(n); // Don't add if null!
 				}
 			};
-			Collections.sort(active_leafs, new Comparator<AccessibilityNodeInfo>(){
-	
-				@Override
-				public int compare(AccessibilityNodeInfo lhs,
-						AccessibilityNodeInfo rhs) {
-					Rect outBoundsL = new Rect();
-					Rect outBoundsR = new Rect();
-					lhs.getBoundsInScreen(outBoundsL);
-					rhs.getBoundsInScreen(outBoundsR);
-					int swidth = mHighlighter.getRootView().getWidth();
-					int sheight = mHighlighter.getRootView().getHeight();
-					int smax;
-					if (swidth <= sheight) { // Portrait
-						smax = sheight;
-					} else { // Landscape
-						smax = swidth;
-					}
-	
-					if ((outBoundsL.centerX() == outBoundsR.centerX())
-							&& (outBoundsL.centerY() == outBoundsR.centerY())) {
-						return 0;
-					} else {
-						return (smax * (outBoundsL.centerY() - outBoundsR.top)) + (outBoundsL.left - outBoundsR.right);
-					}
-				}
-				
-			});
+			Collections.sort(these_leafs, TeclaUtils.mNodeComparator);
 			boolean is_same = false;
-			if ((mActiveLeafs.size() == active_leafs.size()) && (mActiveLeafs.size() > 0)) {
+			if ((mActiveLeafs.size() == these_leafs.size()) && (mActiveLeafs.size() > 0)) {
 				Rect cBounds = new Rect();
 				Rect nBounds = new Rect();
 				int i = 0;
 				is_same = true;
 				do {
 					mActiveLeafs.get(i).getBoundsInScreen(cBounds);
-					active_leafs.get(i).getBoundsInScreen(nBounds);
-					if (!cBounds.equals(nBounds)) is_same = false;
+					these_leafs.get(i).getBoundsInScreen(nBounds);
+					if (!TeclaUtils.isSameBounds(cBounds,nBounds)) is_same = false;
 					i++;
 				} while (i < mActiveLeafs.size() && is_same);
 			} else {
@@ -148,17 +157,17 @@ public class TeclaAccessibilityService extends AccessibilityService {
 			}
 			if (!is_same) {
 				mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
-				mActiveLeafs = active_leafs;
+				mActiveLeafs = these_leafs;
 				mDebugScanHandler.post(mDebugScanRunnable);
 			}
-			TeclaStatic.logD(CLASS_TAG, active_leafs.size() + " leafs in the node!");
+			TeclaDebug.logD(CLASS_TAG, these_leafs.size() + " leafs in the node!");
 		}
 		
 	};
 	
 	private void updateActiveLeafs(AccessibilityNodeInfo node) {
 		if (node == null) {
-			TeclaStatic.logW(CLASS_TAG, "Node is null, nothing to do!");
+			TeclaDebug.logW(CLASS_TAG, "Node is null, nothing to do!");
 		} else {
 			mHandler.removeCallbacks(mUpdateActiveLeafsRunnable);
 			AccessibilityNodeInfo parent = node.getParent();
@@ -197,8 +206,9 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	 * Shuts down the infrastructure in case it has been initialized.
 	 */
 	public void shutDown() {	
-		TeclaStatic.logD(CLASS_TAG, "Shutting down...");
-		is_shutting_down = true;
+		TeclaDebug.logD(CLASS_TAG, "Shutting down...");
+		isShuttingDown = true;
+		unregisterReceiver(mReceiver);
 	}
 
 	private boolean isActive(AccessibilityNodeInfo node) {
@@ -222,24 +232,34 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	}
 	
 	/** DEBUGGING CODE **/
-	private final static int DEBUG_SCAN_DELAY = 1000;
+	private final static int DEBUG_SCAN_DELAY = 600;
 	private Handler mDebugScanHandler;
 	private Runnable mDebugScanRunnable = new Runnable() {
 
 		@Override
 		public void run() {
 			mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
-			if (mActiveLeafs.size() > 0) {
-				if (mLeafIndex >= mActiveLeafs.size()) {
-					mLeafIndex = 0;
-				}
-				mCurrentLeaf = mActiveLeafs.get(mLeafIndex);
-				mHighlighter.setNode(mCurrentLeaf);
+
+			if (isKeyboardVisible) {
+				mHighlighter.setBounds(mKeyBoundsList.get(mKeyIndex));
 				showHighlighter();
-				mLeafIndex++;
-				//logProperties(mCurrentLeaf);
+				mKeyIndex++;
+				if (mKeyIndex >= mKeyBoundsList.size()) {
+					mKeyIndex = 0;
+				}
+			} else {
+				if (mActiveLeafs.size() > 0) {
+					mCurrentLeaf = mActiveLeafs.get(mLeafIndex);
+					mHighlighter.setNode(mCurrentLeaf);
+					showHighlighter();
+					mLeafIndex++;
+					if (mLeafIndex >= mActiveLeafs.size()) {
+						mLeafIndex = 0;
+					}
+					//logProperties(mCurrentLeaf);
+				}
 			}
-			if (!is_shutting_down) {
+			if (!isShuttingDown) {
 				mDebugScanHandler.postDelayed(mDebugScanRunnable, DEBUG_SCAN_DELAY);
 			} else {
 				hideHighlighter();
@@ -251,9 +271,9 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	
 	private void logProperties(AccessibilityNodeInfo node) {
 		AccessibilityNodeInfo parent = node.getParent();
-		TeclaStatic.logW(CLASS_TAG, "Node properties");
-		TeclaStatic.logW(CLASS_TAG, "isA11yFocusable? " + Boolean.toString(isA11yFocusable(node)));
-		TeclaStatic.logW(CLASS_TAG, "isInputFocusable? " + Boolean.toString(isInputFocusable(node)));
+		TeclaDebug.logW(CLASS_TAG, "Node properties");
+		TeclaDebug.logW(CLASS_TAG, "isA11yFocusable? " + Boolean.toString(isA11yFocusable(node)));
+		TeclaDebug.logW(CLASS_TAG, "isInputFocusable? " + Boolean.toString(isInputFocusable(node)));
 		//TeclaStatic.logD(CLASS_TAG, "isVisible? " + Boolean.toString(node.isVisibleToUser()));
 		//TeclaStatic.logD(CLASS_TAG, "isClickable? " + Boolean.toString(node.isClickable()));
 		//TeclaStatic.logD(CLASS_TAG, "isEnabled? " + Boolean.toString(node.isEnabled()));

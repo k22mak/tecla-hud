@@ -1,5 +1,6 @@
 *.classpath
 *.project
+*proguard-project.txt
 *.cproject
 *.settings
 *bin

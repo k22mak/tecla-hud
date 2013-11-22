@@ -1,26 +1,28 @@
 package com.android.tecla;
 
-
 import java.util.ArrayList;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.os.Handler;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.AttributeSet;
+import ca.idrc.tecla.lib.TeclaMessaging;
+import ca.idrc.tecla.lib.TeclaDebug;
+import ca.idrc.tecla.lib.TeclaUtils;
 
-import com.android.inputmethod.keyboard.KeyboardView;
-import com.android.inputmethod.keyboard.Keyboard;
 import com.android.inputmethod.keyboard.Key;
-import com.android.tecla.utils.TeclaDebug;
+import com.android.inputmethod.keyboard.Keyboard;
 
-public class TeclaKeyboardView extends KeyboardView {
+public class TeclaKeyboardView extends com.android.inputmethod.keyboard.KeyboardView {
 
 	/**
 	 * Tag used for logging
 	 */
-	public static final String CLASS_TAG = "Keyboard View";
-
+	public static final String CLASS_TAG = "Tecla Keyboard View";
+	
 	public TeclaKeyboardView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		init(context);
@@ -31,11 +33,15 @@ public class TeclaKeyboardView extends KeyboardView {
 		init(context);
 	}
 
-	private ArrayList<Rect> key_bounds;
+	private ArrayList<Rect> mKeyBoundsList;
+	private LocalBroadcastManager mLocalBroadcastManager;
+	private Intent mKeyboardDrawnIntent = new Intent();
 
 	private void init(Context context) {
 		//Debug.waitForDebugger();
-		key_bounds = new ArrayList<Rect>();
+		mKeyBoundsList = new ArrayList<Rect>();
+		mLocalBroadcastManager = LocalBroadcastManager.getInstance(getContext());
+		mKeyboardDrawnIntent.setAction(TeclaMessaging.EVENT_KEYBOARD_DRAWN);
 	}
 
 	/* (non-Javadoc)
@@ -44,23 +50,39 @@ public class TeclaKeyboardView extends KeyboardView {
 	@Override
 	public void onDraw(Canvas canvas) {
 		super.onDraw(canvas);
-		mHandler.post(mLogBoundsRunnable);
+		if (TeclaUtils.isAccessibilityEnabled(getContext())) {
+			mHandler.post(mBroadcastKeyboardDrawnRunnable);
+		}
 	}
 
 	private Handler mHandler = new Handler();
-	private Runnable mLogBoundsRunnable = new Runnable() {
+	private Runnable mBroadcastKeyboardDrawnRunnable = new Runnable() {
 
 		@Override
 		public void run() {
 			TeclaDebug.logW(CLASS_TAG, "Keyboard drawn!");
-			Keyboard thiskeyboard = getKeyboard();
-			key_bounds.clear();
-			for (Key key : thiskeyboard.mKeys) {
-				TeclaDebug.logI(CLASS_TAG, key.toString() + " at " + key.mHitBox.toString());
-				key_bounds.add(key.mHitBox);
+			Keyboard keyboard = getKeyboard();
+			Rect parent_bounds = new Rect();
+			createAccessibilityNodeInfo().getBoundsInScreen(parent_bounds);
+			int dx = parent_bounds.left;
+			int dy = parent_bounds.top;
+			mKeyBoundsList.clear();
+			for (Key key : keyboard.mKeys) {
+				//TeclaDebug.logI(CLASS_TAG, key.toString() + " at " + key.mHitBox.toString());
+				Rect bounds = key.mHitBox;
+				bounds.offset(dx, dy);
+				bounds.set(bounds.left + key.mHorizontalGap,
+						bounds.top,
+						bounds.right - key.mHorizontalGap,
+						bounds.bottom - keyboard.mVerticalGap);
+				mKeyBoundsList.add(bounds);
 			}
+			//Gson gson = new Gson();
+			mKeyboardDrawnIntent.removeExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST);
+			mKeyboardDrawnIntent.putExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST, mKeyBoundsList);
+			mLocalBroadcastManager.sendBroadcast(mKeyboardDrawnIntent);
 		}
 
 	};
-
+		
 }
