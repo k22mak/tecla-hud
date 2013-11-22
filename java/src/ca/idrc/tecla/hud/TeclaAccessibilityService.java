@@ -5,9 +5,9 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import ca.idrc.tecla.hud.utils.TeclaUtils;
 import ca.idrc.tecla.lib.TeclaMessaging;
 import ca.idrc.tecla.lib.TeclaDebug;
-import ca.idrc.tecla.lib.TeclaUtils;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.BroadcastReceiver;
@@ -22,8 +22,12 @@ public class TeclaAccessibilityService extends AccessibilityService {
 
 	private final static String CLASS_TAG = "TeclaAccessibilityService";
 
+	private TeclaUtils mTeclaUtils;
+	
 	private ArrayList<AccessibilityNodeInfo> mActiveLeafs;
-	private ArrayList<Rect> mKeyBoundsList;
+	private ArrayList<Rect> mLeafBoundsList, mKeyBoundsList;
+	private int[] mLeafRowIndexes, mKeyRowIndexes;
+	private boolean[] mLeafSkipFlags;
 	private AccessibilityNodeInfo mCurrentLeaf;
 	private int mLeafIndex, mKeyIndex;
 	private boolean isKeyboardVisible;
@@ -33,7 +37,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	
 	private AccessibilityNodeInfo mLastNode;
 	
-	private TeclaAccessibilityOverlay mHighlighter;
+	private TeclaHUD mHighlighter;
 
 	//private final static String MAP_VIEW = "android.view.View";
 	// For later use for custom actions 
@@ -56,21 +60,26 @@ public class TeclaAccessibilityService extends AccessibilityService {
 
 	private void init() {
 
+		mTeclaUtils = new TeclaUtils(this);
+
 		//Debug.waitForDebugger();
-		mDebugScanHandler = new Handler();
+		mBetaScanHandler = new Handler();
 		mHandler = new Handler();
+		
 		mLeafIndex = 0;
 		mKeyIndex = 0;
 		isKeyboardVisible = false;
 
 		mActiveLeafs = new ArrayList<AccessibilityNodeInfo>();
+		mLeafBoundsList = new ArrayList<Rect>();
 		mKeyBoundsList = new ArrayList<Rect>();
-		mHighlighter = new TeclaAccessibilityOverlay(this);
+		mHighlighter = new TeclaHUD(this);
 
 		updateActiveLeafs(null);
-		mDebugScanHandler.post(mDebugScanRunnable);
+		mBetaScanHandler.post(mBetaScanRunnable);
 		registerReceiver(mReceiver, TeclaMessaging.mKeyboardDrawnFilter);
 		registerReceiver(mReceiver, TeclaMessaging.mIMEHiddenFilter);
+
 	}
 	
 	@Override
@@ -101,16 +110,16 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			if (intent.getAction().equals(TeclaMessaging.EVENT_IME_HIDING)) {
-				TeclaDebug.logD(CLASS_TAG, "IME Window hiding!");
 				isKeyboardVisible = false;
+				TeclaDebug.logD(CLASS_TAG, "Now Scanning UI!");
 			}
 			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST)) {
-				TeclaDebug.logD(CLASS_TAG, "Keyboard drawn!");
 				mKeyBoundsList = (ArrayList<Rect>) intent.getSerializableExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST);
 				Collections.sort(mKeyBoundsList, TeclaUtils.mRectComparator);
 				isKeyboardVisible = true; //Assume IME is showing
 				mKeyIndex = 0;
-				mDebugScanHandler.post(mDebugScanRunnable);
+				mBetaScanHandler.post(mBetaScanRunnable);
+				TeclaDebug.logD(CLASS_TAG, "Now Scanning Keyboard!");
 			}
 		}
 		
@@ -120,47 +129,74 @@ public class TeclaAccessibilityService extends AccessibilityService {
 
 		@Override
 		public void run() {
+			int i;
 			AccessibilityNodeInfo thisnode = mLastNode;
-			ArrayList<AccessibilityNodeInfo> these_leafs = new ArrayList<AccessibilityNodeInfo>();
+			ArrayList<AccessibilityNodeInfo> theseleafs = new ArrayList<AccessibilityNodeInfo>();
 			Queue<AccessibilityNodeInfo> q = new LinkedList<AccessibilityNodeInfo>();
 			q.add(thisnode);
 			while (!q.isEmpty()) {
 				thisnode = q.poll();
 				if (isActive(thisnode)) {
-					these_leafs.add(thisnode);
+					theseleafs.add(thisnode);
 				}
-				for (int i=0; i<thisnode.getChildCount(); ++i) {
+				for (i=0; i<thisnode.getChildCount(); ++i) {
 					AccessibilityNodeInfo n = thisnode.getChild(i);
 					if (n != null) q.add(n); // Don't add if null!
 				}
 			};
-			Collections.sort(these_leafs, TeclaUtils.mNodeComparator);
-			boolean is_same = false;
-			if ((mActiveLeafs.size() == these_leafs.size()) && (mActiveLeafs.size() > 0)) {
-				Rect cBounds = new Rect();
-				Rect nBounds = new Rect();
-				int i = 0;
-				is_same = true;
-				do {
-					mActiveLeafs.get(i).getBoundsInScreen(cBounds);
-					these_leafs.get(i).getBoundsInScreen(nBounds);
-					if (!TeclaUtils.isSameBounds(cBounds,nBounds)) is_same = false;
-					i++;
-				} while (i < mActiveLeafs.size() && is_same);
-			} else {
-				mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
-				hideHighlighter();
-				mLeafIndex = 0;
+			TeclaDebug.logD(CLASS_TAG, theseleafs.size() + " leafs in this node!");
+			if (theseleafs.size() > 0) {
+				Collections.sort(theseleafs, TeclaUtils.mNodeComparator);
+				boolean is_same = true; //Assume these leafs are no different from the previous ones
+				if ((mActiveLeafs.size() == theseleafs.size())) {
+					// These leafs are the same size, so we need to make sure the bounds aren't different!
+					Rect cBounds = new Rect();
+					Rect nBounds = new Rect();
+					i = 0;
+					do {
+						mActiveLeafs.get(i).getBoundsInScreen(cBounds);
+						theseleafs.get(i).getBoundsInScreen(nBounds);
+						if (!TeclaUtils.isSameBounds(cBounds,nBounds)) is_same = false;
+						i++;
+					} while (i < mActiveLeafs.size() && is_same);
+				} else {
+					is_same = false;
+				}
+				mActiveLeafs = theseleafs;
+				if (!is_same) {
+					//Already know these leafs are different, so we need to reset scanning
+					mBetaScanHandler.removeCallbacks(mBetaScanRunnable);
+					hideHighlighter();
+					mLeafBoundsList = TeclaUtils.getBoundsList(mActiveLeafs);
+					mLeafRowIndexes = getRowIndexes(mLeafBoundsList);
+					mLeafIndex = 0;
+					mBetaScanHandler.post(mBetaScanRunnable);
+				}
 			}
-			if (!is_same) {
-				mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
-				mActiveLeafs = these_leafs;
-				mDebugScanHandler.post(mDebugScanRunnable);
-			}
-			TeclaDebug.logD(CLASS_TAG, these_leafs.size() + " leafs in the node!");
 		}
 		
 	};
+	
+	private int[] getRowIndexes(ArrayList<Rect> boundslist) {
+		int[] indexes = new int[boundslist.size()];
+		int i = 0;
+		int j = 0;
+		Rect prevBounds = boundslist.get(i);
+		Rect theseBounds;
+		indexes = new int[boundslist.size()];
+		indexes[i] = j;
+		for (i=1;i<boundslist.size();i++) {
+			//theseBounds = new Rect();
+			theseBounds = boundslist.get(i);
+			if (!mTeclaUtils.isSameRow(prevBounds, theseBounds)) {
+				j++;
+			}
+			indexes[i] = j;
+			prevBounds = theseBounds;
+			TeclaDebug.logD(CLASS_TAG, "Node " + i + " is in row " + j);
+		}
+		return indexes;
+	}
 	
 	private void updateActiveLeafs(AccessibilityNodeInfo node) {
 		if (node == null) {
@@ -228,37 +264,47 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		return (node.getActions() & AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS;
 	}
 	
-	/** DEBUGGING CODE **/
-	private final static int DEBUG_SCAN_DELAY = 600;
-	private Handler mDebugScanHandler;
-	private Runnable mDebugScanRunnable = new Runnable() {
+	/** BETA CODE **/
+	private final static int SCAN_DEPTH_ROW = 0x55;
+	private final static int SCAN_DEPTH_COLUMN = 0xAA;
+	private final static int BETA_SCAN_DELAY = 600;
+	private static int mScanDepth = SCAN_DEPTH_ROW;
+	private Handler mBetaScanHandler;
+	private Runnable mBetaScanRunnable = new Runnable() {
 
 		@Override
 		public void run() {
-			mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
+			mBetaScanHandler.removeCallbacks(mBetaScanRunnable);
 
 			if (isKeyboardVisible) {
-				mHighlighter.setBounds(mKeyBoundsList.get(mKeyIndex));
-				showHighlighter();
-				mKeyIndex++;
-				if (mKeyIndex >= mKeyBoundsList.size()) {
-					mKeyIndex = 0;
-				}
-				TeclaDebug.logD(CLASS_TAG, "Set bounds " + mKeyBoundsList.get(mKeyIndex).toShortString() + " for key #" + mKeyIndex);
-			} else {
-				if (mActiveLeafs.size() > 0) {
-					mCurrentLeaf = mActiveLeafs.get(mLeafIndex);
-					mHighlighter.setNode(mCurrentLeaf);
+				if (mKeyBoundsList.size() > 0) {
+					mHighlighter.setBounds(mKeyBoundsList.get(mKeyIndex));
 					showHighlighter();
-					mLeafIndex++;
-					if (mLeafIndex >= mActiveLeafs.size()) {
-						mLeafIndex = 0;
+					mKeyIndex++;
+					if (mKeyIndex >= mKeyBoundsList.size()) {
+						mKeyIndex = 0;
 					}
-					//logProperties(mCurrentLeaf);
+				}
+			} else {
+				if (mLeafBoundsList.size() > 0) {
+					if (mScanDepth == SCAN_DEPTH_ROW) {
+						int thisrowindex = mLeafRowIndexes[mLeafIndex];
+						mHighlighter.setBounds(
+								TeclaUtils.getRowBounds(mLeafBoundsList, mLeafRowIndexes, thisrowindex));
+						showHighlighter();
+						while (mLeafRowIndexes[mLeafIndex] == thisrowindex) {
+							incrementLeafIndex();
+						}
+					} else {
+						mHighlighter.setBounds(mLeafBoundsList.get(mLeafIndex));
+						showHighlighter();
+						incrementLeafIndex();
+						//logProperties(mCurrentLeaf);
+					}
 				}
 			}
 			if (!isShuttingDown) {
-				mDebugScanHandler.postDelayed(mDebugScanRunnable, DEBUG_SCAN_DELAY);
+				mBetaScanHandler.postDelayed(mBetaScanRunnable, BETA_SCAN_DELAY);
 			} else {
 				hideHighlighter();
 				mHighlighter = null;
@@ -266,6 +312,13 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		}
 		
 	};
+	
+	private void incrementLeafIndex() {
+		mLeafIndex++;
+		if (mLeafIndex >= mActiveLeafs.size()) {
+			mLeafIndex = 0;
+		}
+	}
 	
 	private void logProperties(AccessibilityNodeInfo node) {
 		AccessibilityNodeInfo parent = node.getParent();

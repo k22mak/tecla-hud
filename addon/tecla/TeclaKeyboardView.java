@@ -11,7 +11,6 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.util.AttributeSet;
 import ca.idrc.tecla.lib.TeclaMessaging;
 import ca.idrc.tecla.lib.TeclaDebug;
-import ca.idrc.tecla.lib.TeclaUtils;
 
 import com.android.inputmethod.keyboard.Key;
 import com.android.inputmethod.keyboard.Keyboard;
@@ -50,7 +49,7 @@ public class TeclaKeyboardView extends com.android.inputmethod.keyboard.Keyboard
 	@Override
 	public void onDraw(Canvas canvas) {
 		super.onDraw(canvas);
-		if (TeclaUtils.isAccessibilityEnabled(getContext())) {
+		if (TeclaMessaging.isAccessibilityEnabled(getContext())) {
 			mHandler.post(mBroadcastKeyboardDrawnRunnable);
 		}
 	}

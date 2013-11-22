@@ -2,7 +2,6 @@ package com.android.tecla;
 
 import ca.idrc.tecla.lib.TeclaMessaging;
 import ca.idrc.tecla.lib.TeclaDebug;
-import ca.idrc.tecla.lib.TeclaUtils;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -65,7 +64,7 @@ public class TeclaIMEService extends InputMethodService {
 	@Override
 	public void onWindowHidden() {
 		TeclaDebug.logW(CLASS_TAG, "Window hiding");
-		if (TeclaUtils.isAccessibilityEnabled(getApplicationContext())) {
+		if (TeclaMessaging.isAccessibilityEnabled(getApplicationContext())) {
 			sendBroadcast(mIMEHiddingIntent);
 		}
 		super.onWindowHidden();

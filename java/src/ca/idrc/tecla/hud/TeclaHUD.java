@@ -26,14 +26,14 @@ import ca.idrc.tecla.hud.utils.HUDView;
 import ca.idrc.tecla.hud.utils.SimpleOverlay;
 import ca.idrc.tecla.lib.TeclaDebug;
 
-public class TeclaAccessibilityOverlay extends SimpleOverlay {
+public class TeclaHUD extends SimpleOverlay {
 	
 	public static final String CLASS_TAG = "Highlighter";
 
     private HUDView mHUDView;
     private int mNodeInset;
     
-	public TeclaAccessibilityOverlay(Context context) {
+	public TeclaHUD(Context context) {
 		super(context);
 		
 		init();
@@ -64,43 +64,14 @@ public class TeclaAccessibilityOverlay extends SimpleOverlay {
 	@Override
 	protected void onHide() {
 		TeclaDebug.logD(CLASS_TAG, "Hiding Highlighter");
-//        mOuterBounds.clear();
-//        mInnerBounds.clear();
 	}
 	
-
-//	public void clearHighlight() {
-//        mInnerBounds.clear();
-//        mInnerBounds.postInvalidate();
-//        mOuterBounds.clear();
-//        mOuterBounds.postInvalidate();
-//	}
-	
-//    public void removeInvalidNodes() {
-//
-//        mOuterBounds.removeInvalidNodes();
-//        mOuterBounds.postInvalidate();
-//
-//        mInnerBounds.removeInvalidNodes();
-//        mInnerBounds.postInvalidate();
-//    }
-
-	public void setNode(AccessibilityNodeInfo node) {
-		
-		//clearHighlight();
-		if(node != null) {
-		    Rect node_bounds = new Rect();
-		    node.getBoundsInScreen(node_bounds);
-		    setBounds(node_bounds);
-		}
-	}    
-
 	public void setBounds(Rect bounds) {
 
-		mHUDView.setLeft(bounds.left - mNodeInset);
-		mHUDView.setTop(bounds.top - mNodeInset);
-		mHUDView.setRight(bounds.right + mNodeInset);
-		mHUDView.setBottom(bounds.bottom + mNodeInset);
+		mHUDView.setLeft(bounds.left - HUDView.FRAME_PIXEL_STROKE_WIDTH);
+		mHUDView.setTop(bounds.top - HUDView.FRAME_PIXEL_STROKE_WIDTH * 2);
+		mHUDView.setRight(bounds.right + HUDView.FRAME_PIXEL_STROKE_WIDTH);
+		mHUDView.setBottom(bounds.bottom + HUDView.FRAME_PIXEL_STROKE_WIDTH * 2);
 		mHUDView.postInvalidate();
 
 	}

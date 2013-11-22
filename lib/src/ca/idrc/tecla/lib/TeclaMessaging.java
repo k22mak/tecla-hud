@@ -1,6 +1,8 @@
 package ca.idrc.tecla.lib;
 
+import android.content.Context;
 import android.content.IntentFilter;
+import android.view.accessibility.AccessibilityManager;
 
 public class TeclaMessaging {
 
@@ -12,5 +14,10 @@ public class TeclaMessaging {
 	public static final IntentFilter mKeyboardDrawnFilter = new IntentFilter(EVENT_KEYBOARD_DRAWN);
 	public static final IntentFilter mIMEShownFilter = new IntentFilter(EVENT_IME_SHOWN);
 	public static final IntentFilter mIMEHiddenFilter = new IntentFilter(EVENT_IME_HIDING);
+	
+	public static boolean isAccessibilityEnabled(Context context) {
+		AccessibilityManager manager = (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+		return manager.isEnabled();
+	}
 	
 }
