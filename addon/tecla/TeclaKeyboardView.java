@@ -68,12 +68,16 @@ public class TeclaKeyboardView extends com.android.inputmethod.keyboard.Keyboard
 			int dy = parent_bounds.top;
 			mKeyBoundsList.clear();
 			for (Key key : keyboard.mKeys) {
-				//TeclaDebug.logI(CLASS_TAG, key.toString() + " at " + key.mHitBox.toString());
-				Rect bounds = key.mHitBox;
+				Rect bounds = new Rect(
+						key.mHitBox.left,
+						key.mHitBox.top,
+						key.mHitBox.right,
+						key.mHitBox.bottom
+						);
 				bounds.offset(dx, dy);
-				bounds.set(bounds.left + key.mHorizontalGap,
+				bounds.set(bounds.left,
 						bounds.top,
-						bounds.right - key.mHorizontalGap,
+						bounds.right,
 						bounds.bottom - keyboard.mVerticalGap);
 				mKeyBoundsList.add(bounds);
 			}

@@ -76,7 +76,6 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	@Override
 	public void onAccessibilityEvent(AccessibilityEvent event) {
 		int event_type = event.getEventType();
-		//TeclaStatic.logD(CLASS_TAG, AccessibilityEvent.eventTypeToString(event_type) + ": " + event.getText());
 		AccessibilityNodeInfo node = event.getSource();
 		if (node != null) {
 			CharSequence desc = event.getPackageName();
@@ -103,17 +102,15 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		public void onReceive(Context context, Intent intent) {
 			if (intent.getAction().equals(TeclaMessaging.EVENT_IME_HIDING)) {
 				TeclaDebug.logD(CLASS_TAG, "IME Window hiding!");
-				//mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
 				isKeyboardVisible = false;
 			}
 			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST)) {
 				TeclaDebug.logD(CLASS_TAG, "Keyboard drawn!");
-				//mDebugScanHandler.removeCallbacks(mDebugScanRunnable);
 				mKeyBoundsList = (ArrayList<Rect>) intent.getSerializableExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST);
 				Collections.sort(mKeyBoundsList, TeclaUtils.mRectComparator);
 				isKeyboardVisible = true; //Assume IME is showing
 				mKeyIndex = 0;
-				//mDebugScanHandler.post(mDebugScanRunnable);
+				mDebugScanHandler.post(mDebugScanRunnable);
 			}
 		}
 		
@@ -247,6 +244,7 @@ public class TeclaAccessibilityService extends AccessibilityService {
 				if (mKeyIndex >= mKeyBoundsList.size()) {
 					mKeyIndex = 0;
 				}
+				TeclaDebug.logD(CLASS_TAG, "Set bounds " + mKeyBoundsList.get(mKeyIndex).toShortString() + " for key #" + mKeyIndex);
 			} else {
 				if (mActiveLeafs.size() > 0) {
 					mCurrentLeaf = mActiveLeafs.get(mLeafIndex);
