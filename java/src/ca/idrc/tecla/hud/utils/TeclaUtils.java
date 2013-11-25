@@ -29,6 +29,27 @@ public class TeclaUtils {
 		mDisplay.getMetrics(mDisplayMetrics);
 	}
 
+	public int[] getRowIndexes(ArrayList<Rect> boundslist) {
+		int[] indexes = new int[boundslist.size()];
+		int i = 0;
+		int j = 0;
+		Rect prevBounds = boundslist.get(i);
+		Rect theseBounds;
+		indexes = new int[boundslist.size()];
+		indexes[i] = j;
+		for (i=1;i<boundslist.size();i++) {
+			//theseBounds = new Rect();
+			theseBounds = boundslist.get(i);
+			if (!isSameRow(prevBounds, theseBounds)) {
+				j++;
+			}
+			indexes[i] = j;
+			prevBounds = theseBounds;
+			TeclaDebug.logD(CLASS_TAG, "Node " + i + " is in row " + j);
+		}
+		return indexes;
+	}
+	
 	public static Rect getRowBounds(ArrayList<Rect> boundslist, int[] rowindexes, int rowindex) {
 		int first;
 		int i = 0;
