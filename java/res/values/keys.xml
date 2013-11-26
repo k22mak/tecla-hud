@@ -1,0 +1,5 @@
+<resources>
+    <string name="CATEGORY_ALTERNATIVE_INPUT_SETTINGS">CATEGORY_ALTERNATIVE_INPUT_SETTINGS</string>
+    <string name="PREF_FULL_SCREEN_SWITCH">PREF_FULL_SCREEN_SWITCH</string>
+    
+</resources>

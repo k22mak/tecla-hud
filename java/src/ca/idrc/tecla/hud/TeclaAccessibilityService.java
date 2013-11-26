@@ -13,12 +13,15 @@ import android.accessibilityservice.AccessibilityService;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.graphics.Rect;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-public class TeclaAccessibilityService extends AccessibilityService {
+public class TeclaAccessibilityService extends AccessibilityService implements OnSharedPreferenceChangeListener {
 
 	private final static String CLASS_TAG = "TeclaAccessibilityService";
 
@@ -32,12 +35,14 @@ public class TeclaAccessibilityService extends AccessibilityService {
 	private int mLeafIndex, mKeyIndex;
 	private boolean isKeyboardVisible;
 
+	public SharedPreferences shared_prefs;
+
 	private Handler mHandler;
 	private boolean isShuttingDown = false;
 	
 	private AccessibilityNodeInfo mLastNode;
 	
-	private TeclaHUD mHighlighter;
+	private HUDOverlay mHighlighter;
 
 	//private final static String MAP_VIEW = "android.view.View";
 	// For later use for custom actions 
@@ -73,12 +78,16 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		mActiveLeafs = new ArrayList<AccessibilityNodeInfo>();
 		mLeafBoundsList = new ArrayList<Rect>();
 		mKeyBoundsList = new ArrayList<Rect>();
-		mHighlighter = new TeclaHUD(this);
+		mHighlighter = new HUDOverlay(this);
 
 		updateActiveLeafs(null);
 		mBetaScanHandler.post(mBetaScanRunnable);
 		registerReceiver(mReceiver, TeclaMessaging.mKeyboardDrawnFilter);
 		registerReceiver(mReceiver, TeclaMessaging.mIMEHiddenFilter);
+		
+		//Register for changes in preferences
+		shared_prefs = PreferenceManager.getDefaultSharedPreferences(this);
+		shared_prefs.registerOnSharedPreferenceChangeListener(this);
 
 	}
 	
@@ -211,6 +220,14 @@ public class TeclaAccessibilityService extends AccessibilityService {
 		}
 	}
 	
+	@Override
+	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
+			String key) {
+		
+		TeclaDebug.logD(CLASS_TAG, "A preference changed!");
+		
+	}
+
 	@Override
 	public void onDestroy() {
 		super.onDestroy();

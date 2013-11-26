@@ -26,14 +26,14 @@ import ca.idrc.tecla.hud.utils.HUDView;
 import ca.idrc.tecla.hud.utils.SimpleOverlay;
 import ca.idrc.tecla.lib.TeclaDebug;
 
-public class TeclaHUD extends SimpleOverlay {
+public class HUDOverlay extends SimpleOverlay {
 	
 	public static final String CLASS_TAG = "Highlighter";
 
     private HUDView mHUDView;
     private int mNodeInset;
     
-	public TeclaHUD(Context context) {
+	public HUDOverlay(Context context) {
 		super(context);
 		
 		init();
@@ -51,7 +51,7 @@ public class TeclaHUD extends SimpleOverlay {
 		
 		mNodeInset = HUDView.FRAME_PIXEL_STROKE_WIDTH * 2;
 
-		setContentView(R.layout.tecla_accessibility_overlay);
+		setContentView(R.layout.hud_overlay);
 
 		mHUDView = (HUDView) findViewById(R.id.bounds);
 	}
