@@ -4,9 +4,12 @@ import android.content.Context;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import ca.idrc.tecla.hud.utils.SwitchEvent;
 import ca.idrc.tecla.hud.utils.SimpleOverlay;
 
 public class SwitchOverlay extends SimpleOverlay {
+	
+	private SwitchEvent.OnSwitchEventListener mSwitchEventListener;
 
 	public SwitchOverlay(Context context) {
 		super(context);
@@ -18,6 +21,7 @@ public class SwitchOverlay extends SimpleOverlay {
 		View rView = getRootView();
 		rView.setBackgroundResource(R.drawable.screen_switch_background_normal);
 		rView.setOnTouchListener(mOverlayTouchListener);
+		
 	}
 
 	/**
@@ -29,14 +33,11 @@ public class SwitchOverlay extends SimpleOverlay {
 			switch (event.getAction()) {
 			case MotionEvent.ACTION_DOWN:
 				getRootView().setBackgroundResource(R.drawable.screen_switch_background_pressed);
-				//TeclaApp.a11yservice.injectSwitchEvent(
-						//new SwitchEvent(SwitchEvent.MASK_SWITCH_E1, 0)); //Primary switch pressed
+				mSwitchEventListener.onSwitchPress(SwitchEvent.SWITCH_P1);
 				break;
 			case MotionEvent.ACTION_UP:
 				getRootView().setBackgroundResource(R.drawable.screen_switch_background_normal);
-				//TeclaApp.a11yservice.injectSwitchEvent(
-						//new SwitchEvent(0,0)); //Switches released
-				// if (TeclaApp.DEBUG) Log.d(TeclaApp.TAG, CLASS_TAG + "Fullscreen switch up!");
+				mSwitchEventListener.onSwitchRelease(SwitchEvent.SWITCH_P1);
 				break;
 			default:
 				break;
@@ -44,5 +45,9 @@ public class SwitchOverlay extends SimpleOverlay {
 			return false;
 		}
 	};
+	
+	public void registerOnSwitchEventListener(SwitchEvent.OnSwitchEventListener listener) {
+		mSwitchEventListener = listener;
+	}
 
 }

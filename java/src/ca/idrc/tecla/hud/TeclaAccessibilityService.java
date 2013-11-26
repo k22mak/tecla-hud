@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import ca.idrc.tecla.hud.utils.SwitchEvent;
 import ca.idrc.tecla.hud.utils.TeclaUtils;
 import ca.idrc.tecla.lib.TeclaMessaging;
 import ca.idrc.tecla.lib.TeclaDebug;
@@ -21,12 +22,12 @@ import android.preference.PreferenceManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-public class TeclaAccessibilityService extends AccessibilityService implements OnSharedPreferenceChangeListener {
+public class TeclaAccessibilityService extends AccessibilityService implements OnSharedPreferenceChangeListener, SwitchEvent.OnSwitchEventListener {
 
 	private final static String CLASS_TAG = "TeclaAccessibilityService";
 
 	private TeclaUtils mTeclaUtils;
-	
+
 	private ArrayList<AccessibilityNodeInfo> mActiveLeafs;
 	private ArrayList<Rect> mLeafBoundsList, mKeyBoundsList;
 	private int[] mLeafRowIndexes, mKeyRowIndexes;
@@ -35,19 +36,21 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 	private int mLeafIndex, mKeyIndex;
 	private boolean isKeyboardVisible;
 
-	public SharedPreferences shared_prefs;
+	private SharedPreferences shared_prefs;
 
 	private Handler mHandler;
 	private boolean isShuttingDown = false;
-	
+	private boolean isDepthChanged = true;
+
 	private AccessibilityNodeInfo mLastNode;
-	
+
 	private HUDOverlay mHighlighter;
+	private SwitchOverlay mSwitchOverlay;
 
 	//private final static String MAP_VIEW = "android.view.View";
 	// For later use for custom actions 
 	//private final static String WEB_VIEW = "Web View";
-	
+
 	@Override
 	public void onCreate() {
 		TeclaDebug.logD(CLASS_TAG, "Service created");
@@ -70,7 +73,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 		//Debug.waitForDebugger();
 		mBetaScanHandler = new Handler();
 		mHandler = new Handler();
-		
+
 		mLeafIndex = 0;
 		mKeyIndex = 0;
 		isKeyboardVisible = false;
@@ -79,18 +82,20 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 		mLeafBoundsList = new ArrayList<Rect>();
 		mKeyBoundsList = new ArrayList<Rect>();
 		mHighlighter = new HUDOverlay(this);
+		mSwitchOverlay = new SwitchOverlay(this);
+		mSwitchOverlay.registerOnSwitchEventListener(this);
 
 		updateActiveLeafs(null);
 		mBetaScanHandler.post(mBetaScanRunnable);
 		registerReceiver(mReceiver, TeclaMessaging.mKeyboardDrawnFilter);
 		registerReceiver(mReceiver, TeclaMessaging.mIMEHiddenFilter);
-		
+
 		//Register for changes in preferences
 		shared_prefs = PreferenceManager.getDefaultSharedPreferences(this);
 		shared_prefs.registerOnSharedPreferenceChangeListener(this);
 
 	}
-	
+
 	@Override
 	public void onAccessibilityEvent(AccessibilityEvent event) {
 		int event_type = event.getEventType();
@@ -130,13 +135,14 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 				mKeyRowIndexes = mTeclaUtils.getRowIndexes(mKeyBoundsList);
 				isKeyboardVisible = true; //Assume IME is showing
 				mKeyIndex = 0;
+				mScanDepth = SCAN_DEPTH_ROW;
 				mBetaScanHandler.post(mBetaScanRunnable);
 				TeclaDebug.logD(CLASS_TAG, "Now Scanning Keyboard!");
 			}
 		}
-		
+
 	};
-	
+
 	private Runnable mUpdateActiveLeafsRunnable = new Runnable() {
 
 		@Override
@@ -148,7 +154,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 			q.add(thisnode);
 			while (!q.isEmpty()) {
 				thisnode = q.poll();
-				if (isActive(thisnode)) {
+				if (TeclaUtils.isActive(thisnode)) {
 					theseleafs.add(thisnode);
 				}
 				for (i=0; i<thisnode.getChildCount(); ++i) {
@@ -186,9 +192,9 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 				}
 			}
 		}
-		
+
 	};
-	
+
 	private void updateActiveLeafs(AccessibilityNodeInfo node) {
 		if (node == null) {
 			TeclaDebug.logW(CLASS_TAG, "Node is null, nothing to do!");
@@ -203,7 +209,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 			mHandler.post(mUpdateActiveLeafsRunnable);				
 		}
 	}
-	
+
 	private void showHighlighter() {
 		if (mHighlighter != null) {
 			if (!mHighlighter.isVisible()) {
@@ -211,7 +217,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 			}
 		}
 	}
-	
+
 	private void hideHighlighter() {
 		if (mHighlighter != null) {
 			if (mHighlighter.isVisible()) {
@@ -219,13 +225,51 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 			}
 		}
 	}
-	
+
 	@Override
 	public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
 			String key) {
-		
-		TeclaDebug.logD(CLASS_TAG, "A preference changed!");
-		
+
+		TeclaDebug.logD(CLASS_TAG, "Preference " + key + " changed!");
+		if (key.equals(getString(R.string.PREF_FULL_SCREEN_SWITCH))) {
+			if (sharedPreferences.getBoolean(key, false)) {
+				mSwitchOverlay.show();
+				TeclaDebug.logD(CLASS_TAG, "Full screen on!");
+			} else {
+				mSwitchOverlay.hide();
+				TeclaDebug.logD(CLASS_TAG, "Full screen off!");
+			}
+		}
+
+	}
+
+	@Override
+	public void onSwitchPress(int switch_id) {
+		TeclaDebug.logD(CLASS_TAG, "Switch pressed on item " + mLeafIndex + ", in row " + mLeafRowIndexes[mLeafIndex]);
+		mBetaScanHandler.removeCallbacks(mBetaScanRunnable);
+		if (mScanDepth == SCAN_DEPTH_ROW) {
+			mScanDepth = SCAN_DEPTH_ITEM;
+		} else if (mScanDepth == SCAN_DEPTH_ITEM) {
+			selectItem();
+			mScanDepth = SCAN_DEPTH_ROW;
+			mLeafIndex = 0;
+		}
+		isDepthChanged = true;
+		mBetaScanHandler.post(mBetaScanRunnable);
+	}
+	
+	private void selectItem() {
+		if (isKeyboardVisible) {
+			//TODO: Send type key broadcast!
+			TeclaDebug.logD(CLASS_TAG, "Send type key event for key at " + mKeyBoundsList.get(mKeyIndex).centerX() + ", " + mKeyBoundsList.get(mKeyIndex).centerY());
+		} else {
+			mActiveLeafs.get(mLeafIndex).performAction(AccessibilityNodeInfo.ACTION_CLICK);
+		}
+	}
+
+	@Override
+	public void onSwitchRelease(int switch_id) {
+		TeclaDebug.logD(CLASS_TAG, "Switch release!");
 	}
 
 	@Override
@@ -243,30 +287,10 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 		unregisterReceiver(mReceiver);
 	}
 
-	private boolean isActive(AccessibilityNodeInfo node) {
-		boolean is_active = false;
-		//AccessibilityNodeInfo parent = node.getParent();
-		if (node.isVisibleToUser()
-				&& node.isClickable()
-				&& (isA11yFocusable(node) || isInputFocusable(node))
-				//&& !(!isInputFocusable(node) && !(node.isScrollable() || parent.isScrollable()))
-				&& node.isEnabled())
-			is_active = true;
-		return is_active;
-	}
-	
-	private boolean isInputFocusable(AccessibilityNodeInfo node) {
-		return (node.getActions() & AccessibilityNodeInfo.ACTION_FOCUS) == AccessibilityNodeInfo.ACTION_FOCUS;
-	}
-	
-	private boolean isA11yFocusable(AccessibilityNodeInfo node) {
-		return (node.getActions() & AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS;
-	}
-	
 	/** BETA CODE **/
 	private final static int SCAN_DEPTH_ROW = 0x55;
-	private final static int SCAN_DEPTH_COLUMN = 0xAA;
-	private final static int BETA_SCAN_DELAY = 600;
+	private final static int SCAN_DEPTH_ITEM = 0xAA;
+	private final static int BETA_SCAN_DELAY = 800;
 	private static int mScanDepth = SCAN_DEPTH_ROW;
 	private Handler mBetaScanHandler;
 	private Runnable mBetaScanRunnable = new Runnable() {
@@ -274,37 +298,71 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 		@Override
 		public void run() {
 
+			mBetaScanHandler.removeCallbacks(mBetaScanRunnable);
 			if (isKeyboardVisible) {
 				if (mKeyBoundsList.size() > 0) {
-					if (mScanDepth == SCAN_DEPTH_ROW) {
-						int thisrowindex = mKeyRowIndexes[mKeyIndex];
-						mHighlighter.setBounds(
-								TeclaUtils.getRowBounds(mKeyBoundsList, mKeyRowIndexes, thisrowindex));
-						showHighlighter();
-						while (mKeyRowIndexes[mKeyIndex] == thisrowindex) {
-							incrementKeyIndex();
+					int lastrowindex = mKeyRowIndexes[mKeyIndex];
+					switch (mScanDepth) {
+					case SCAN_DEPTH_ROW:
+						if (isDepthChanged) {
+							isDepthChanged = false;
+						} else {
+							//Skip to next row!
+							while (mKeyRowIndexes[mKeyIndex] == lastrowindex) {
+								incrementKeyIndex();
+							}
 						}
-					} else {
+						mHighlighter.setBounds(
+								TeclaUtils.getRowBounds(mKeyBoundsList, mKeyRowIndexes, mKeyRowIndexes[mKeyIndex]));
+						showHighlighter();
+						break;
+					case SCAN_DEPTH_ITEM:
+						if (isDepthChanged) {
+							isDepthChanged = false;
+						} else {
+							incrementKeyIndex();
+							//Skip items in other rows
+							while (mKeyRowIndexes[mKeyIndex] != lastrowindex) {
+								incrementKeyIndex();
+							}
+						}
 						mHighlighter.setBounds(mKeyBoundsList.get(mKeyIndex));
 						showHighlighter();
-						incrementKeyIndex();
+						break;
 					}
 				}
 			} else {
 				if (mLeafBoundsList.size() > 0) {
-					if (mScanDepth == SCAN_DEPTH_ROW) {
-						int thisrowindex = mLeafRowIndexes[mLeafIndex];
-						mHighlighter.setBounds(
-								TeclaUtils.getRowBounds(mLeafBoundsList, mLeafRowIndexes, thisrowindex));
-						showHighlighter();
-						while (mLeafRowIndexes[mLeafIndex] == thisrowindex) {
-							incrementLeafIndex();
+					int lastrowindex = mLeafRowIndexes[mLeafIndex];
+					switch (mScanDepth) {
+					case SCAN_DEPTH_ROW:
+						if (isDepthChanged) {
+							isDepthChanged = false;
+						} else {
+							//Skip to next row!
+							while (mLeafRowIndexes[mLeafIndex] == lastrowindex) {
+								incrementLeafIndex();
+							}
 						}
-					} else {
+						TeclaDebug.logD(CLASS_TAG, "Highlighting row " + mLeafRowIndexes[mLeafIndex]);
+						mHighlighter.setBounds(
+								TeclaUtils.getRowBounds(mLeafBoundsList, mLeafRowIndexes, mLeafRowIndexes[mLeafIndex]));
+						showHighlighter();
+						break;
+					case SCAN_DEPTH_ITEM:
+						if (isDepthChanged) {
+							isDepthChanged = false;
+						} else {
+							incrementLeafIndex();
+							//Skip items in other rows
+							while (mLeafRowIndexes[mLeafIndex] != lastrowindex) {
+								incrementLeafIndex();
+							}
+						}
+						TeclaDebug.logD(CLASS_TAG, "Highlighting item " + mLeafIndex + ", in row " + mLeafRowIndexes[mLeafIndex]);
 						mHighlighter.setBounds(mLeafBoundsList.get(mLeafIndex));
 						showHighlighter();
-						incrementLeafIndex();
-						//logProperties(mCurrentLeaf);
+						break;
 					}
 				}
 			}
@@ -315,47 +373,27 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 				mHighlighter = null;
 			}
 		}
-		
+
 	};
-	
+
 	private void incrementLeafIndex() {
 		mLeafIndex++;
 		if (mLeafIndex >= mActiveLeafs.size()) {
 			mLeafIndex = 0;
 		}
 	}
-	
+
 	private void incrementKeyIndex() {
 		mKeyIndex++;
 		if (mKeyIndex >= mKeyBoundsList.size()) {
 			mKeyIndex = 0;
 		}
 	}
-	
-	private void logProperties(AccessibilityNodeInfo node) {
-		AccessibilityNodeInfo parent = node.getParent();
-		TeclaDebug.logW(CLASS_TAG, "Node properties");
-		TeclaDebug.logW(CLASS_TAG, "isA11yFocusable? " + Boolean.toString(isA11yFocusable(node)));
-		TeclaDebug.logW(CLASS_TAG, "isInputFocusable? " + Boolean.toString(isInputFocusable(node)));
-		//TeclaStatic.logD(CLASS_TAG, "isVisible? " + Boolean.toString(node.isVisibleToUser()));
-		//TeclaStatic.logD(CLASS_TAG, "isClickable? " + Boolean.toString(node.isClickable()));
-		//TeclaStatic.logD(CLASS_TAG, "isEnabled? " + Boolean.toString(node.isEnabled()));
-		//TeclaStatic.logD(CLASS_TAG, "isScrollable? " + Boolean.toString(node.isScrollable()));
-		//TeclaStatic.logD(CLASS_TAG, "isSelected? " + Boolean.toString(node.isSelected()));
-		//TeclaStatic.logW(CLASS_TAG, "Parent properties");
-		//TeclaStatic.logW(CLASS_TAG, "isVisible? " + Boolean.toString(parent.isVisibleToUser()));
-		//TeclaStatic.logW(CLASS_TAG, "isClickable? " + Boolean.toString(parent.isClickable()));
-		//TeclaStatic.logW(CLASS_TAG, "isEnabled? " + Boolean.toString(parent.isEnabled()));
-		//TeclaStatic.logW(CLASS_TAG, "isA11yFocusable? " + Boolean.toString((parent.getActions() & AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS));
-		//TeclaStatic.logW(CLASS_TAG, "isInputFocusable? " + Boolean.toString((parent.getActions() & AccessibilityNodeInfo.ACTION_FOCUS) == AccessibilityNodeInfo.ACTION_FOCUS));
-		//TeclaStatic.logW(CLASS_TAG, "isScrollable? " + Boolean.toString(parent.isScrollable()));
-		//TeclaStatic.logW(CLASS_TAG, "isSelected? " + Boolean.toString(parent.isSelected()));
-	}
 
 	@Override
 	public void onInterrupt() {
 		// TODO Auto-generated method stub
-		
+
 	}
-    
+
 }
