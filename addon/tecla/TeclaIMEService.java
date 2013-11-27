@@ -14,7 +14,7 @@ public class TeclaIMEService extends InputMethodService {
 	/**
 	 * Tag used for logging
 	 */
-	public static final String CLASS_TAG = "Input Method Service";
+	public static final String CLASS_TAG = "TeclaIMEService";
 
 	private LocalBroadcastManager mLocalBroadcastManager;
 	private Intent mIMEHiddingIntent = new Intent();
@@ -24,10 +24,15 @@ public class TeclaIMEService extends InputMethodService {
 	 */
 	@Override
 	public void onCreate() {
+		init();
+		super.onCreate();
+	}
+	
+	private void init() {
 		mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
 		mLocalBroadcastManager.registerReceiver(mReceiver, TeclaMessaging.mKeyboardDrawnFilter);
+		registerReceiver(mReceiver, TeclaMessaging.mKeySelectedFilter);
 		mIMEHiddingIntent.setAction(TeclaMessaging.EVENT_IME_HIDING);
-		super.onCreate();
 	}
 
 	/* (non-Javadoc)
@@ -43,8 +48,14 @@ public class TeclaIMEService extends InputMethodService {
 
 		@Override
 		public void onReceive(Context context, Intent intent) {
-			TeclaDebug.logW(CLASS_TAG, "Forwarding keyboard drawn event");
-			sendBroadcast(intent);
+			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST)) {
+				TeclaDebug.logD(CLASS_TAG, "Forwarding keyboard drawn event");
+				sendBroadcast(intent);
+			}
+			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS)) {
+				mLocalBroadcastManager.sendBroadcast(intent);
+				TeclaDebug.logD(CLASS_TAG, "Key selected event received");
+			}
 		}
 		
 	};

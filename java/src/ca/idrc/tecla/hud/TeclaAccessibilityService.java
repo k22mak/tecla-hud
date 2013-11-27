@@ -37,6 +37,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 	private boolean isKeyboardVisible;
 
 	private SharedPreferences shared_prefs;
+	private Intent mKeySelectedIntent = new Intent();
 
 	private Handler mHandler;
 	private boolean isShuttingDown = false;
@@ -93,6 +94,9 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 		//Register for changes in preferences
 		shared_prefs = PreferenceManager.getDefaultSharedPreferences(this);
 		shared_prefs.registerOnSharedPreferenceChangeListener(this);
+		
+		//Init intents
+		mKeySelectedIntent.setAction(TeclaMessaging.EVENT_KEY_SELECTED);
 
 	}
 
@@ -260,8 +264,10 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 	
 	private void selectItem() {
 		if (isKeyboardVisible) {
-			//TODO: Send type key broadcast!
-			TeclaDebug.logD(CLASS_TAG, "Send type key event for key at " + mKeyBoundsList.get(mKeyIndex).centerX() + ", " + mKeyBoundsList.get(mKeyIndex).centerY());
+			mKeySelectedIntent.removeExtra(TeclaMessaging.EXTRA_KEY_BOUNDS);
+			mKeySelectedIntent.putExtra(TeclaMessaging.EXTRA_KEY_BOUNDS, mKeyBoundsList.get(mKeyIndex));
+			sendBroadcast(mKeySelectedIntent);
+			TeclaDebug.logD(CLASS_TAG, "Sent type key event for key at " + mKeyBoundsList.get(mKeyIndex).centerX() + ", " + mKeyBoundsList.get(mKeyIndex).centerY());
 		} else {
 			mActiveLeafs.get(mLeafIndex).performAction(AccessibilityNodeInfo.ACTION_CLICK);
 		}
