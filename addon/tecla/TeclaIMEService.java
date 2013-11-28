@@ -29,19 +29,11 @@ public class TeclaIMEService extends InputMethodService {
 	}
 	
 	private void init() {
+		TeclaDebug.logW(CLASS_TAG, "Creating service...");
 		mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
 		mLocalBroadcastManager.registerReceiver(mReceiver, TeclaMessaging.mKeyboardDrawnFilter);
 		registerReceiver(mReceiver, TeclaMessaging.mKeySelectedFilter);
 		mIMEHiddingIntent.setAction(TeclaMessaging.EVENT_IME_HIDING);
-	}
-
-	/* (non-Javadoc)
-	 * @see android.inputmethodservice.InputMethodService#onDestroy()
-	 */
-	@Override
-	public void onDestroy() {
-		mLocalBroadcastManager.unregisterReceiver(mReceiver);
-		super.onDestroy();
 	}
 
 	private BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -49,11 +41,11 @@ public class TeclaIMEService extends InputMethodService {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST)) {
-				TeclaDebug.logD(CLASS_TAG, "Forwarding keyboard drawn event");
+				TeclaDebug.logI(CLASS_TAG, "Forwarding keyboard drawn event");
 				sendBroadcast(intent);
 			}
 			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS)) {
-				TeclaDebug.logD(CLASS_TAG, "Forwarding key selected event");
+				TeclaDebug.logI(CLASS_TAG, "Forwarding key selected event");
 				mLocalBroadcastManager.sendBroadcast(intent);
 			}
 		}
@@ -66,7 +58,7 @@ public class TeclaIMEService extends InputMethodService {
 	@Override
 	public void onWindowShown() {
 		super.onWindowShown();
-		TeclaDebug.logW(CLASS_TAG, "Window shown");
+		TeclaDebug.logD(CLASS_TAG, "Window shown");
 	}
 
 	/* (non-Javadoc)
@@ -74,11 +66,24 @@ public class TeclaIMEService extends InputMethodService {
 	 */
 	@Override
 	public void onWindowHidden() {
-		TeclaDebug.logW(CLASS_TAG, "Window hiding");
+		TeclaDebug.logD(CLASS_TAG, "Window hiding");
 		if (TeclaMessaging.isAccessibilityEnabled(getApplicationContext())) {
 			sendBroadcast(mIMEHiddingIntent);
 		}
 		super.onWindowHidden();
+	}
+	
+	/* (non-Javadoc)
+	 * @see android.inputmethodservice.InputMethodService#onDestroy()
+	 */
+	@Override
+	public void onDestroy() {
+		shutdown();
+		super.onDestroy();
+	}
+
+	private void shutdown() {
+		mLocalBroadcastManager.unregisterReceiver(mReceiver);
 	}
 	
 }

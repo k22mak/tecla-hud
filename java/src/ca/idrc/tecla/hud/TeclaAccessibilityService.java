@@ -270,6 +270,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 			TeclaDebug.logD(CLASS_TAG, "Sent type key event for key at " + mKeyBoundsList.get(mKeyIndex).centerX() + ", " + mKeyBoundsList.get(mKeyIndex).centerY());
 		} else {
 			mActiveLeafs.get(mLeafIndex).performAction(AccessibilityNodeInfo.ACTION_CLICK);
+			TeclaUtils.logProperties(mActiveLeafs.get(mLeafIndex));
 		}
 	}
 
@@ -280,8 +281,8 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 
 	@Override
 	public void onDestroy() {
-		super.onDestroy();
 		shutDown();
+		super.onDestroy();
 	}
 
 	/**
@@ -289,8 +290,9 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 	 */
 	public void shutDown() {	
 		TeclaDebug.logD(CLASS_TAG, "Shutting down...");
-		isShuttingDown = true;
 		unregisterReceiver(mReceiver);
+		shared_prefs.unregisterOnSharedPreferenceChangeListener(this);
+		isShuttingDown = true;
 	}
 
 	/** BETA CODE **/
@@ -333,7 +335,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 						index = incrementIndex(index, bounds_list);
 					}
 				}
-				TeclaDebug.logD(CLASS_TAG, "Highlighting row " + row_indexes[index]);
+				//TeclaDebug.logD(CLASS_TAG, "Highlighting row " + row_indexes[index]);
 				mHighlighter.setBounds(
 						TeclaUtils.getRowBounds(bounds_list, row_indexes, row_indexes[index]));
 				showHighlighter();
@@ -348,7 +350,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 						index = incrementIndex(index, bounds_list);
 					}
 				}
-				TeclaDebug.logD(CLASS_TAG, "Highlighting item " + index + ", in row " + row_indexes[index]);
+				//TeclaDebug.logD(CLASS_TAG, "Highlighting item " + index + ", in row " + row_indexes[index]);
 				mHighlighter.setBounds(bounds_list.get(index));
 				showHighlighter();
 				break;

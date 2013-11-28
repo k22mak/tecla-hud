@@ -2,6 +2,8 @@ package ca.idrc.tecla.hud.utils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import ca.idrc.tecla.lib.TeclaDebug;
 
@@ -29,14 +31,6 @@ public class TeclaUtils {
 		mDisplay.getMetrics(mDisplayMetrics);
 	}
 
-//	public static int getRowStart(int[] rowindexes, int rowindex) {
-//		int i = 0;
-//		while (rowindexes[i] != rowindex) {
-//			i++;
-//		}
-//		return i;
-//	}
-	
 	public int[] getRowIndexes(ArrayList<Rect> boundslist) {
 		int[] indexes = new int[boundslist.size()];
 		int i = 0;
@@ -95,16 +89,24 @@ public class TeclaUtils {
 		return boundslist;
 	}
 	
+	public static boolean isActiveLeaf(AccessibilityNodeInfo node) {
+		//return (isActive(node) && !hasActiveDescendents(node)); <-- Doesn't seem to do much!
+		return isActive(node);
+	}
+	
 	public static boolean isActive(AccessibilityNodeInfo node) {
 		boolean is_active = false;
-		//AccessibilityNodeInfo parent = node.getParent();
-		if (node.isVisibleToUser()
-				&& node.isClickable()
-				&& (isA11yFocusable(node) || isInputFocusable(node))
-				//&& !(!isInputFocusable(node) && !(node.isScrollable() || parent.isScrollable()))
-				&& (!node.isScrollable())
-				&& node.isEnabled())
-			is_active = true;
+		if (node != null) {
+			//AccessibilityNodeInfo parent = node.getParent();
+			if (node.isVisibleToUser()
+					&& node.isClickable()
+					&& (isA11yFocusable(node) || isInputFocusable(node))
+					//&& !node.isLongClickable()
+					//&& !(!isInputFocusable(node) && !(node.isScrollable() || parent.isScrollable()))
+					//&& (!node.isScrollable()) //<-- doesn't seem to do much
+					&& node.isEnabled())
+				is_active = true;
+		}
 		return is_active;
 	}
 
@@ -168,21 +170,48 @@ public class TeclaUtils {
 	public static void logProperties(AccessibilityNodeInfo node) {
 		AccessibilityNodeInfo parent = node.getParent();
 		TeclaDebug.logW(CLASS_TAG, "Node properties");
-		TeclaDebug.logW(CLASS_TAG, "isA11yFocusable? " + Boolean.toString(isA11yFocusable(node)));
-		TeclaDebug.logW(CLASS_TAG, "isInputFocusable? " + Boolean.toString(isInputFocusable(node)));
-		//TeclaStatic.logD(CLASS_TAG, "isVisible? " + Boolean.toString(node.isVisibleToUser()));
-		//TeclaStatic.logD(CLASS_TAG, "isClickable? " + Boolean.toString(node.isClickable()));
-		//TeclaStatic.logD(CLASS_TAG, "isEnabled? " + Boolean.toString(node.isEnabled()));
-		//TeclaStatic.logD(CLASS_TAG, "isScrollable? " + Boolean.toString(node.isScrollable()));
-		//TeclaStatic.logD(CLASS_TAG, "isSelected? " + Boolean.toString(node.isSelected()));
-		//TeclaStatic.logW(CLASS_TAG, "Parent properties");
-		//TeclaStatic.logW(CLASS_TAG, "isVisible? " + Boolean.toString(parent.isVisibleToUser()));
-		//TeclaStatic.logW(CLASS_TAG, "isClickable? " + Boolean.toString(parent.isClickable()));
-		//TeclaStatic.logW(CLASS_TAG, "isEnabled? " + Boolean.toString(parent.isEnabled()));
-		//TeclaStatic.logW(CLASS_TAG, "isA11yFocusable? " + Boolean.toString((parent.getActions() & AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS));
-		//TeclaStatic.logW(CLASS_TAG, "isInputFocusable? " + Boolean.toString((parent.getActions() & AccessibilityNodeInfo.ACTION_FOCUS) == AccessibilityNodeInfo.ACTION_FOCUS));
-		//TeclaStatic.logW(CLASS_TAG, "isScrollable? " + Boolean.toString(parent.isScrollable()));
-		//TeclaStatic.logW(CLASS_TAG, "isSelected? " + Boolean.toString(parent.isSelected()));
+		TeclaDebug.logD(CLASS_TAG, "isA11yFocusable? " + Boolean.toString(isA11yFocusable(node)));
+		TeclaDebug.logD(CLASS_TAG, "isInputFocusable? " + Boolean.toString(isInputFocusable(node)));
+		TeclaDebug.logD(CLASS_TAG, "isVisible? " + Boolean.toString(node.isVisibleToUser()));
+		TeclaDebug.logD(CLASS_TAG, "isClickable? " + Boolean.toString(node.isClickable()));
+		TeclaDebug.logD(CLASS_TAG, "isEnabled? " + Boolean.toString(node.isEnabled()));
+		TeclaDebug.logD(CLASS_TAG, "isScrollable? " + Boolean.toString(node.isScrollable()));
+		TeclaDebug.logD(CLASS_TAG, "isSelected? " + Boolean.toString(node.isSelected()));
+		TeclaDebug.logD(CLASS_TAG, "isLongClickable? " + Boolean.toString(node.isLongClickable()));
+		TeclaDebug.logW(CLASS_TAG, "Parent properties");
+		TeclaDebug.logD(CLASS_TAG, "isVisible? " + Boolean.toString(parent.isVisibleToUser()));
+		TeclaDebug.logD(CLASS_TAG, "isClickable? " + Boolean.toString(parent.isClickable()));
+		TeclaDebug.logD(CLASS_TAG, "isEnabled? " + Boolean.toString(parent.isEnabled()));
+		TeclaDebug.logD(CLASS_TAG, "isA11yFocusable? " + Boolean.toString((parent.getActions() & AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS) == AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS));
+		TeclaDebug.logD(CLASS_TAG, "isInputFocusable? " + Boolean.toString((parent.getActions() & AccessibilityNodeInfo.ACTION_FOCUS) == AccessibilityNodeInfo.ACTION_FOCUS));
+		TeclaDebug.logD(CLASS_TAG, "isScrollable? " + Boolean.toString(parent.isScrollable()));
+		TeclaDebug.logD(CLASS_TAG, "isSelected? " + Boolean.toString(parent.isSelected()));
+		TeclaDebug.logD(CLASS_TAG, "isLongClickable? " + Boolean.toString(parent.isLongClickable()));
 	}
 
+	private static boolean hasActiveDescendents(AccessibilityNodeInfo node) {
+		boolean has_active_children = false;
+		if (node != null) {
+			Queue<AccessibilityNodeInfo> q = new LinkedList<AccessibilityNodeInfo>();
+			do {
+				for (int i=0; i<node.getChildCount(); ++i) {
+					AccessibilityNodeInfo n = node.getChild(i);
+					if (n != null) q.add(n); // Don't add if null!
+				}
+				node = q.poll();
+				has_active_children = isActive(node);
+			} while (!q.isEmpty() || has_active_children);
+			//q.clear();
+		}
+		return has_active_children;
+	}
+
+	private static int getRowStart(int[] rowindexes, int rowindex) {
+		int i = 0;
+		while (rowindexes[i] != rowindex) {
+			i++;
+		}
+		return i;
+	}
+	
 }

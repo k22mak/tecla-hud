@@ -92,7 +92,7 @@ public class TeclaKeyboardView extends com.android.inputmethod.keyboard.Keyboard
 
 		@Override
 		public void run() {
-			TeclaDebug.logW(CLASS_TAG, "Keyboard drawn!");
+			TeclaDebug.logD(CLASS_TAG, "Keyboard drawn!");
 			Keyboard keyboard = getKeyboard();
 			mParentBounds = new Rect();
 			createAccessibilityNodeInfo().getBoundsInScreen(mParentBounds);
