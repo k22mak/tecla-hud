@@ -47,7 +47,7 @@ public class TeclaUtils {
 			}
 			indexes[i] = j;
 			prevBounds = theseBounds;
-			TeclaDebug.logD(CLASS_TAG, "Node " + i + " is in row " + j);
+			//TeclaDebug.logD(CLASS_TAG, "Node " + i + " is in row " + j);
 		}
 		return indexes;
 	}
@@ -90,7 +90,7 @@ public class TeclaUtils {
 	}
 	
 	public static boolean isActiveLeaf(AccessibilityNodeInfo node) {
-		//return (isActive(node) && !hasActiveDescendents(node)); <-- Doesn't seem to do much!
+		//return (isActive(node) && !hasActiveDescendents(node)); //Doesn't seem to do much!
 		return isActive(node);
 	}
 	
@@ -103,7 +103,8 @@ public class TeclaUtils {
 					&& (isA11yFocusable(node) || isInputFocusable(node))
 					//&& !node.isLongClickable()
 					//&& !(!isInputFocusable(node) && !(node.isScrollable() || parent.isScrollable()))
-					//&& (!node.isScrollable()) //<-- doesn't seem to do much
+					//&& (!node.isScrollable()) // doesn't seem to do much
+					//&& (node.getChildCount() == 0) // nope
 					&& node.isEnabled())
 				is_active = true;
 		}
