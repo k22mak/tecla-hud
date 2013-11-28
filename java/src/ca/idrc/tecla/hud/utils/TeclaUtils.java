@@ -129,7 +129,7 @@ public class TeclaUtils {
 				(lhs.left == rhs.left));
 	}
 
-	public static Comparator<AccessibilityNodeInfo> mNodeComparator = new Comparator<AccessibilityNodeInfo>() {
+	public Comparator<AccessibilityNodeInfo> mNodeComparator = new Comparator<AccessibilityNodeInfo>() {
 
 		@Override
 		public int compare(AccessibilityNodeInfo lhs, AccessibilityNodeInfo rhs) {
@@ -142,7 +142,7 @@ public class TeclaUtils {
 		
 	};
 
-	public static Comparator<Rect> mRectComparator = new Comparator<Rect>() {
+	public Comparator<Rect> mRectComparator = new Comparator<Rect>() {
 
 		@Override
 		public int compare(Rect lhs, Rect rhs) {
@@ -152,12 +152,16 @@ public class TeclaUtils {
 		
 	};
 
-	private static int compareBounds(Rect lhs, Rect rhs) {
+	private int compareBounds(Rect lhs, Rect rhs) {
 		int imax = 100; //Arbitrary number that is larger than the max number of nodes along the screen width
 		if (isSameBounds(lhs,rhs)) {
 			return 0;
 		} else {
-			return (imax * (lhs.top - rhs.top)) + (lhs.centerX() - rhs.centerX());
+			if (isSameRow(lhs, rhs)) {
+				return lhs.centerX() - rhs.centerX();				
+			} else {
+				return (imax * (lhs.top - rhs.top)) + (lhs.centerX() - rhs.centerX());
+			}
 		}
 	}
 	

@@ -53,8 +53,8 @@ public class TeclaIMEService extends InputMethodService {
 				sendBroadcast(intent);
 			}
 			if (intent.hasExtra(TeclaMessaging.EXTRA_KEY_BOUNDS)) {
+				TeclaDebug.logD(CLASS_TAG, "Forwarding key selected event");
 				mLocalBroadcastManager.sendBroadcast(intent);
-				TeclaDebug.logD(CLASS_TAG, "Key selected event received");
 			}
 		}
 		

@@ -135,7 +135,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 				mBetaScanHandler.removeCallbacks(mBetaScanRunnable);
 				hideHighlighter();
 				mKeyBoundsList = (ArrayList<Rect>) intent.getSerializableExtra(TeclaMessaging.EXTRA_KEY_BOUNDS_LIST);
-				Collections.sort(mKeyBoundsList, TeclaUtils.mRectComparator);
+				Collections.sort(mKeyBoundsList, mTeclaUtils.mRectComparator);
 				mKeyRowIndexes = mTeclaUtils.getRowIndexes(mKeyBoundsList);
 				isKeyboardVisible = true; //Assume IME is showing
 				mKeyIndex = 0;
@@ -168,7 +168,7 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 			};
 			TeclaDebug.logD(CLASS_TAG, theseleafs.size() + " leafs in this node!");
 			if (theseleafs.size() > 0) {
-				Collections.sort(theseleafs, TeclaUtils.mNodeComparator);
+				Collections.sort(theseleafs, mTeclaUtils.mNodeComparator);
 				boolean is_same = true; //Assume these leafs are no different from the previous ones
 				if ((mActiveLeafs.size() == theseleafs.size())) {
 					// These leafs are the same size, so we need to make sure the bounds aren't different!
@@ -306,71 +306,9 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 
 			mBetaScanHandler.removeCallbacks(mBetaScanRunnable);
 			if (isKeyboardVisible) {
-				if (mKeyBoundsList.size() > 0) {
-					int lastrowindex = mKeyRowIndexes[mKeyIndex];
-					switch (mScanDepth) {
-					case SCAN_DEPTH_ROW:
-						if (isDepthChanged) {
-							isDepthChanged = false;
-						} else {
-							//Skip to next row!
-							while (mKeyRowIndexes[mKeyIndex] == lastrowindex) {
-								incrementKeyIndex();
-							}
-						}
-						mHighlighter.setBounds(
-								TeclaUtils.getRowBounds(mKeyBoundsList, mKeyRowIndexes, mKeyRowIndexes[mKeyIndex]));
-						showHighlighter();
-						break;
-					case SCAN_DEPTH_ITEM:
-						if (isDepthChanged) {
-							isDepthChanged = false;
-						} else {
-							incrementKeyIndex();
-							//Skip items in other rows
-							while (mKeyRowIndexes[mKeyIndex] != lastrowindex) {
-								incrementKeyIndex();
-							}
-						}
-						mHighlighter.setBounds(mKeyBoundsList.get(mKeyIndex));
-						showHighlighter();
-						break;
-					}
-				}
+				mKeyIndex = highlightNext(mKeyBoundsList, mKeyRowIndexes, mKeyIndex);
 			} else {
-				if (mLeafBoundsList.size() > 0) {
-					int lastrowindex = mLeafRowIndexes[mLeafIndex];
-					switch (mScanDepth) {
-					case SCAN_DEPTH_ROW:
-						if (isDepthChanged) {
-							isDepthChanged = false;
-						} else {
-							//Skip to next row!
-							while (mLeafRowIndexes[mLeafIndex] == lastrowindex) {
-								incrementLeafIndex();
-							}
-						}
-						TeclaDebug.logD(CLASS_TAG, "Highlighting row " + mLeafRowIndexes[mLeafIndex]);
-						mHighlighter.setBounds(
-								TeclaUtils.getRowBounds(mLeafBoundsList, mLeafRowIndexes, mLeafRowIndexes[mLeafIndex]));
-						showHighlighter();
-						break;
-					case SCAN_DEPTH_ITEM:
-						if (isDepthChanged) {
-							isDepthChanged = false;
-						} else {
-							incrementLeafIndex();
-							//Skip items in other rows
-							while (mLeafRowIndexes[mLeafIndex] != lastrowindex) {
-								incrementLeafIndex();
-							}
-						}
-						TeclaDebug.logD(CLASS_TAG, "Highlighting item " + mLeafIndex + ", in row " + mLeafRowIndexes[mLeafIndex]);
-						mHighlighter.setBounds(mLeafBoundsList.get(mLeafIndex));
-						showHighlighter();
-						break;
-					}
-				}
+				mLeafIndex = highlightNext(mLeafBoundsList, mLeafRowIndexes, mLeafIndex);
 			}
 			if (!isShuttingDown) {
 				mBetaScanHandler.postDelayed(mBetaScanRunnable, BETA_SCAN_DELAY);
@@ -381,19 +319,50 @@ public class TeclaAccessibilityService extends AccessibilityService implements O
 		}
 
 	};
-
-	private void incrementLeafIndex() {
-		mLeafIndex++;
-		if (mLeafIndex >= mActiveLeafs.size()) {
-			mLeafIndex = 0;
+	
+	private int highlightNext(ArrayList<Rect> bounds_list, int[] row_indexes, int index) {
+		if (bounds_list.size() > 0) {
+			int lastrowindex = row_indexes[index];
+			switch (mScanDepth) {
+			case SCAN_DEPTH_ROW:
+				if (isDepthChanged) {
+					isDepthChanged = false;
+				} else {
+					//Skip to next row!
+					while (row_indexes[index] == lastrowindex) {
+						index = incrementIndex(index, bounds_list);
+					}
+				}
+				TeclaDebug.logD(CLASS_TAG, "Highlighting row " + row_indexes[index]);
+				mHighlighter.setBounds(
+						TeclaUtils.getRowBounds(bounds_list, row_indexes, row_indexes[index]));
+				showHighlighter();
+				break;
+			case SCAN_DEPTH_ITEM:
+				if (isDepthChanged) {
+					isDepthChanged = false;
+				} else {
+					index = incrementIndex(index, bounds_list);
+					//Skip items in other rows
+					while (row_indexes[index] != lastrowindex) {
+						index = incrementIndex(index, bounds_list);
+					}
+				}
+				TeclaDebug.logD(CLASS_TAG, "Highlighting item " + index + ", in row " + row_indexes[index]);
+				mHighlighter.setBounds(bounds_list.get(index));
+				showHighlighter();
+				break;
+			}
 		}
+		return index;
 	}
 
-	private void incrementKeyIndex() {
-		mKeyIndex++;
-		if (mKeyIndex >= mKeyBoundsList.size()) {
-			mKeyIndex = 0;
+	private int incrementIndex(int index, ArrayList<Rect> bounds_list) {
+		index++;
+		if (index >= bounds_list.size()) {
+			index = 0;
 		}
+		return index;
 	}
 
 	@Override
